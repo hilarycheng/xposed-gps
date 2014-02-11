@@ -13,6 +13,7 @@ import android.location.LocationListener;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import de.robv.android.xposed.XC_MethodHook;
 import java.util.Set;
@@ -51,6 +52,9 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 						XC_MethodHook methodHook = new XC_MethodHook() {
 								@Override
 								protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+									if (param.method.getName().equals("onProviderDisabled")) {
+										param.setResult(null);
+									}
 								}
 
 								@Override
@@ -78,6 +82,7 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 											if (param.args.length > 0 && param.args[0] != null) {
 												if (param.args != null && param.args.length == 1 && param.method.getName().equals("isProviderEnabled")) {
 													XposedBridge.log("Location Manager isProviderEnabled : " + param.args[0] + " " + param.getResult());
+													param.setResult(new Boolean(true));
 												}
 												if (param.args != null && param.args.length >= 1 && param.method.getName().equals("requestLocationUpdates")) {
 													for (int count = 0; count < param.args.length; count++) {
@@ -94,6 +99,13 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 																			mHook.put(method, this);
 																			XposedBridge.log("Location Manager Listener " + method.getName());
 																			XposedBridge.hookMethod(method, this);
+																			Location l = new Location("network");
+																			l.setTime(new Long(System.currentTimeMillis()));
+																			l.setLatitude(22.318344);
+																			l.setLongitude(114.168655);
+																			l.setAccuracy((float) 20.0);
+																			
+																			XposedHelpers.callMethod(ll, "onLocationChanged", l);
 																		}
 																	}
 																}
