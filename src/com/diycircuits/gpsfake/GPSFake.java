@@ -1,5 +1,6 @@
 package com.diycircuits.gpsfake;
 
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Method;
 import java.util.HashSet;
 
@@ -23,11 +24,11 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
-	// XposedBridge.log("Loaded app: " + lpparam.packageName);
-	// mApp = lpparam.packageName;
-	// // if (lpparam.packageName.equals("com.diycircuits.gpsfake"))
-	// if (!lpparam.packageName.equals("jp.co.mixi.monsterstrike"))
-	// 	return;
+		// XposedBridge.log("Loaded app: " + lpparam.packageName);
+		// mApp = lpparam.packageName;
+		// // if (lpparam.packageName.equals("com.diycircuits.gpsfake"))
+		// if (!lpparam.packageName.equals("jp.co.mixi.monsterstrike"))
+		// 	return;
     }
 
     private void handleGetSystemService(String name, Object instance) {
@@ -45,7 +46,8 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
 						Class<?> clazz = hookClass;
 						for (Method method : clazz.getDeclaredMethods()) {
-							if (method != null) {
+							int m = method.getModifiers();
+							if (method != null && Modifier.isPublic(m) && !Modifier.isStatic(m)) {
 								XposedBridge.log("Location Manager Method Name " + method.getName());
 							}
 						}
@@ -59,61 +61,61 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     private void hookSystemService(String context) {
-	try {
-	    XC_MethodHook methodHook = new XC_MethodHook() {
-		    @Override
-		    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-		    }
+		try {
+			XC_MethodHook methodHook = new XC_MethodHook() {
+					@Override
+					protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+					}
 
-		    @Override
-		    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-			if (!param.hasThrowable())
-			    try {
-				if (param.args.length > 0 && param.args[0] != null) {
-					// XposedBridge.log("Hook Method : " + mInstance + " " + mApp + " " + packageName);
-				    String name = (String) param.args[0];
-				    Object instance = param.getResult();
-				    if (name != null && instance != null) {
-					handleGetSystemService(name, instance);
-				    }
-				}
-			    } catch (Throwable ex) {
-				throw ex;
-			    }
-		    }
-		};
+					@Override
+					protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+						if (!param.hasThrowable())
+							try {
+								if (param.args.length > 0 && param.args[0] != null) {
+									// XposedBridge.log("Hook Method : " + mInstance + " " + mApp + " " + packageName);
+									String name = (String) param.args[0];
+									Object instance = param.getResult();
+									if (name != null && instance != null) {
+										handleGetSystemService(name, instance);
+									}
+								}
+							} catch (Throwable ex) {
+								throw ex;
+							}
+					}
+				};
 
-	    Set<XC_MethodHook.Unhook> hookSet = new HashSet<XC_MethodHook.Unhook>();
+			Set<XC_MethodHook.Unhook> hookSet = new HashSet<XC_MethodHook.Unhook>();
 	    
-	    Class<?> hookClass = null;
-	    try {
-		hookClass = findClass(context, null);
-		if (hookClass == null)
-		    throw new ClassNotFoundException(context);
-		XposedBridge.log("Zygote Context Find Class Done");
-	    } catch (Exception ex) {
-		XposedBridge.log("Zygote Context Impl Exception " + ex);
-	    }
+			Class<?> hookClass = null;
+			try {
+				hookClass = findClass(context, null);
+				if (hookClass == null)
+					throw new ClassNotFoundException(context);
+				XposedBridge.log("Zygote Context Find Class Done");
+			} catch (Exception ex) {
+				XposedBridge.log("Zygote Context Impl Exception " + ex);
+			}
 
-	    XposedBridge.log("Zygote Context Find Class " + hookClass);
-	    Class<?> clazz = hookClass;
-	    while (clazz != null) {
-		for (Method method : clazz.getDeclaredMethods()) {
-		    if (method != null && method.getName().equals("getSystemService")) {
-			hookSet.add(XposedBridge.hookMethod(method, methodHook));
-		    }
+			XposedBridge.log("Zygote Context Find Class " + hookClass);
+			Class<?> clazz = hookClass;
+			while (clazz != null) {
+				for (Method method : clazz.getDeclaredMethods()) {
+					if (method != null && method.getName().equals("getSystemService")) {
+						hookSet.add(XposedBridge.hookMethod(method, methodHook));
+					}
+				}
+				clazz = (hookSet.isEmpty() ? clazz.getSuperclass() : null);
+			}
+		} catch (Exception ex) {
+			XposedBridge.log("Zygote Context Hook Exception " + ex);
 		}
-		clazz = (hookSet.isEmpty() ? clazz.getSuperclass() : null);
-	    }
-	} catch (Exception ex) {
-	    XposedBridge.log("Zygote Context Hook Exception " + ex);
-	}
     }
 
     @Override
     public void initZygote(StartupParam startupParam) throws Throwable {
-	hookSystemService("android.app.ContextImpl");
-	hookSystemService("android.app.Activity");
+		hookSystemService("android.app.ContextImpl");
+		hookSystemService("android.app.Activity");
     }
 
 }
