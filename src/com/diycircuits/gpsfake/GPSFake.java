@@ -4,6 +4,7 @@ import java.lang.reflect.Method;
 import java.util.HashSet;
 
 import android.content.Context;
+import android.app.AndroidAppHelper;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
@@ -17,21 +18,44 @@ import static de.robv.android.xposed.XposedHelpers.findClass;
 public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private boolean mLocationManagerHooked = false;
+	private GPSFake mInstance = this;
+	private String mApp = "";
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
-	XposedBridge.log("Loaded app: " + lpparam.packageName);
-	// if (lpparam.packageName.equals("com.diycircuits.gpsfake"))
+	// XposedBridge.log("Loaded app: " + lpparam.packageName);
+	// mApp = lpparam.packageName;
+	// // if (lpparam.packageName.equals("com.diycircuits.gpsfake"))
+	// if (!lpparam.packageName.equals("jp.co.mixi.monsterstrike"))
+	// 	return;
     }
 
     private void handleGetSystemService(String name, Object instance) {
-	if (name.equals(Context.LOCATION_SERVICE)) {
-	    if (!mLocationManagerHooked) {
-		XposedBridge.log("Hook Location Manager");
-		// hookAll(XLocationManager.getInstances(instance), mSecret);
-		mLocationManagerHooked = true;
-	    }
-	}
+		if (name.equals(Context.LOCATION_SERVICE)) {
+			if (!mLocationManagerHooked) {
+				String packageName = AndroidAppHelper.currentPackageName();
+				if (packageName.equals("jp.co.mixi.monsterstrike")) {
+					XposedBridge.log("Hook Location Manager " + packageName + " " + instance.getClass().getName());
+					// hookAll(XLocationManager.getInstances(instance), mSecret);
+					try {
+						Class<?> hookClass = null;
+						hookClass = findClass(instance.getClass().getName(), null);
+						if (hookClass == null)
+							throw new ClassNotFoundException(instance.getClass().getName());
+
+						Class<?> clazz = hookClass;
+						for (Method method : clazz.getDeclaredMethods()) {
+							if (method != null) {
+								XposedBridge.log("Location Manager Method Name " + method.getName());
+							}
+						}
+						
+					} catch (Exception ex) {
+					}
+				}
+				mLocationManagerHooked = true;
+			}
+		}
     }
 
     private void hookSystemService(String context) {
@@ -46,6 +70,7 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 			if (!param.hasThrowable())
 			    try {
 				if (param.args.length > 0 && param.args[0] != null) {
+					// XposedBridge.log("Hook Method : " + mInstance + " " + mApp + " " + packageName);
 				    String name = (String) param.args[0];
 				    Object instance = param.getResult();
 				    if (name != null && instance != null) {
