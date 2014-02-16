@@ -17,6 +17,7 @@ import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import de.robv.android.xposed.XC_MethodHook;
 import java.util.Set;
+import java.util.Random;
 
 import static de.robv.android.xposed.XposedHelpers.findClass;
 
@@ -26,23 +27,38 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 	private GPSFake mInstance = this;
 	private String mApp = "";
 	private HashMap<Method, XC_MethodHook> mHook = new HashMap<Method, XC_MethodHook>();
+	private double pi  = 3.14159265359;
+	private double newlat = 22.318344;
+	private double newlng = 114.168655;
+	private Random rand = new Random();
+	private final double earth = (double) 6378137.0;
+	private static Settings settings = new Settings();
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
-		// XposedBridge.log("Loaded app: " + lpparam.packageName);
+		settings.reload();
+		XposedBridge.log("Loaded app: " + lpparam.packageName + " " + settings.isStarted() + " " + settings.getLat() + " " + settings.getLng());
 		// mApp = lpparam.packageName;
 		// // if (lpparam.packageName.equals("com.diycircuits.gpsfake"))
 		// if (!lpparam.packageName.equals("jp.co.mixi.monsterstrike"))
 		// 	return;
     }
 
+	private void updateLocation() {
+		double x = (double) (rand.nextInt(50) - 25);
+		double y = (double) (rand.nextInt(50) - 25);
+		double dlat = x / earth;
+		double dlng = y / ( earth * Math.cos(pi * settings.getLat() / 180.0));
+		newlat = settings.getLat() + (dlat * 180.0 / pi);
+		newlng = settings.getLng() + (dlng * 180.0 / pi);
+	}
+
     private void handleGetSystemService(String name, Object instance) {
 		if (name.equals(Context.LOCATION_SERVICE)) {
 			if (!mLocationManagerHooked) {
 				String packageName = AndroidAppHelper.currentPackageName();
 				if (packageName.equals("jp.co.mixi.monsterstrike")) {
-					XposedBridge.log("Hook Location Manager " + packageName + " " + instance.getClass().getName());
-					// hookAll(XLocationManager.getInstances(instance), mSecret);
+					// XposedBridge.log("Hook Location Manager " + packageName + " " + instance.getClass().getName());
 					try {
 						Class<?> hookClass = null;
 						hookClass = findClass(instance.getClass().getName(), null);
@@ -52,41 +68,47 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 						XC_MethodHook methodHook = new XC_MethodHook() {
 								@Override
 								protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+		                            settings.reload();
 									if (param.method.getName().equals("onProviderDisabled")) {
-										param.setResult(null);
+										if (settings.isStarted()) param.setResult(null);
 									}
 								}
 
 								@Override
 								protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+		                            settings.reload();
 									if (!param.hasThrowable())
 										try {
-											XposedBridge.log("Location Manager Hook Method : " + param.method.getName());
-											if (param.method.getName().equals("getTime")) {
-												XposedBridge.log("Location Manager getTime " + param.getResult());
-												param.setResult(new Long(System.currentTimeMillis()));
-											}
-											if (param.method.getName().equals("getLatitude")) {
-												XposedBridge.log("Location Manager getLatitude " + param.getResult());
-												param.setResult(new Double(22.318344));
-											}
-											if (param.method.getName().equals("getLongitude")) {
-												param.setResult(new Double(114.168655));
-											}
-											if (param.method.getName().equals("getAccuracy")) {
-												XposedBridge.log("Location Manager getAccuracy " + param.getResult());
-											}
-											if (param.args != null && param.args.length == 1 && param.method.getName().equals("set")) {
-												XposedBridge.log("Location Manager set " + param.args[0]);
+											if (settings.isStarted()) {
+												// XposedBridge.log("Location Manager Hook Method : " + param.method.getName());
+												if (param.method.getName().equals("getTime")) {
+													// XposedBridge.log("Location Manager getTime " + param.getResult());
+													param.setResult(new Long(System.currentTimeMillis()));
+												}
+												if (param.method.getName().equals("getLatitude")) {
+													XposedBridge.log("Location Manager getLatitude " + newlat + " " + newlng);
+													// param.setResult(new Double(22.318344));
+													param.setResult(new Double(newlat));
+												}
+												if (param.method.getName().equals("getLongitude")) {
+													// param.setResult(new Double(114.168655));
+													param.setResult(new Double(newlng));
+												}
+												if (param.method.getName().equals("getAccuracy")) {
+													// XposedBridge.log("Location Manager getAccuracy " + param.getResult());
+												}
+												if (param.args != null && param.args.length == 1 && param.method.getName().equals("set")) {
+													// XposedBridge.log("Location Manager set " + param.args[0]);
+												}
 											}
 											if (param.args.length > 0 && param.args[0] != null) {
 												if (param.args != null && param.args.length == 1 && param.method.getName().equals("isProviderEnabled")) {
-													XposedBridge.log("Location Manager isProviderEnabled : " + param.args[0] + " " + param.getResult());
-													param.setResult(new Boolean(true));
+													// XposedBridge.log("Location Manager isProviderEnabled : " + param.args[0] + " " + param.getResult());
+													if (settings.isStarted()) param.setResult(new Boolean(true));
 												}
 												if (param.args != null && param.args.length >= 1 && param.method.getName().equals("requestLocationUpdates")) {
 													for (int count = 0; count < param.args.length; count++) {
-														XposedBridge.log("Location Manager requestLocationUpdates : " + param.args[count]);
+														// XposedBridge.log("Location Manager requestLocationUpdates : " + param.args[count]);
 														if (param.args[count] instanceof LocationListener) {
 															LocationListener ll = (LocationListener) param.args[count];
 
@@ -97,15 +119,18 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 																	if (method != null && Modifier.isPublic(m) && !Modifier.isStatic(m)) {
 																		if (!mHook.containsKey(method)) {
 																			mHook.put(method, this);
-																			XposedBridge.log("Location Manager Listener " + method.getName());
+																			// XposedBridge.log("Location Manager Listener " + method.getName());
 																			XposedBridge.hookMethod(method, this);
-																			Location l = new Location("network");
-																			l.setTime(new Long(System.currentTimeMillis()));
-																			l.setLatitude(22.318344);
-																			l.setLongitude(114.168655);
-																			l.setAccuracy((float) 20.0);
-																			
-																			XposedHelpers.callMethod(ll, "onLocationChanged", l);
+																			if (settings.isStarted()) {
+																				Location l = new Location("network");
+																				updateLocation();
+																				XposedBridge.log("Location Manager New Loc : " + newlat + " " + newlng);
+																				l.setTime(new Long(System.currentTimeMillis()));
+																				l.setLatitude(newlat);
+																				l.setLongitude(newlng);
+																				l.setAccuracy((float) 20.0);
+																				XposedHelpers.callMethod(ll, "onLocationChanged", l);
+																			}
 																		}
 																	}
 																}
@@ -124,7 +149,7 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 																if (method != null && Modifier.isPublic(m) && !Modifier.isStatic(m)) {
 																	if (!mHook.containsKey(method)) {
 																		mHook.put(method, this);
-																		XposedBridge.log("Location Manager Listener " + method.getName());
+																		// XposedBridge.log("Location Manager Listener " + method.getName());
 																		XposedBridge.hookMethod(method, this);
 																	}
 																}
@@ -151,7 +176,7 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 						for (Method method : clazz.getDeclaredMethods()) {
 							int m = method.getModifiers();
 							if (method != null && Modifier.isPublic(m) && !Modifier.isStatic(m)) {
-								XposedBridge.log("Location Manager Method Name " + method.getName());
+								// XposedBridge.log("Location Manager Method Name " + method.getName());
 								XposedBridge.hookMethod(method, methodHook);
 							}
 						}
@@ -196,12 +221,12 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 				hookClass = findClass(context, null);
 				if (hookClass == null)
 					throw new ClassNotFoundException(context);
-				XposedBridge.log("Zygote Context Find Class Done");
+				// XposedBridge.log("Zygote Context Find Class Done");
 			} catch (Exception ex) {
-				XposedBridge.log("Zygote Context Impl Exception " + ex);
+				// XposedBridge.log("Zygote Context Impl Exception " + ex);
 			}
 
-			XposedBridge.log("Zygote Context Find Class " + hookClass);
+			// XposedBridge.log("Zygote Context Find Class " + hookClass);
 			Class<?> clazz = hookClass;
 			while (clazz != null) {
 				for (Method method : clazz.getDeclaredMethods()) {
@@ -212,7 +237,7 @@ public class GPSFake implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 				clazz = (hookSet.isEmpty() ? clazz.getSuperclass() : null);
 			}
 		} catch (Exception ex) {
-			XposedBridge.log("Zygote Context Hook Exception " + ex);
+			// XposedBridge.log("Zygote Context Hook Exception " + ex);
 		}
     }
 
