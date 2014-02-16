@@ -6,6 +6,8 @@
     <string name="hello_world">Hello world!</string>
     <string name="set_location">Set Location</string>
     <string name="select_apps">Select Apps</string>
+    <string name="location_msg">Location Set to</string>
+    <string name="location_msg_stopped">Location emulation is stopped</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
 

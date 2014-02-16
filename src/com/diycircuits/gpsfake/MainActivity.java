@@ -6,7 +6,9 @@ import android.view.Menu;
 import android.app.FragmentManager;
 import android.app.Fragment;
 import android.util.Log;
+import android.content.Context;
 import android.widget.Button;
+import android.widget.Toast;
 import android.view.View;
 import android.view.View.OnClickListener;
 import com.google.android.gms.maps.MapFragment;
@@ -78,7 +80,21 @@ public class MainActivity extends Activity implements OnCameraChangeListener, On
 		} else if (v.getId() == R.id.select_apps) {
 		}
 
-		Log.i(TAG, "Clicked " + settings.getLat() + " " + settings.getLng());
+		if (started) {
+			Context context = getApplicationContext();
+			CharSequence text = getString(R.string.location_msg) + " " + mInit.latitude + " " + mInit.longitude;
+			int duration = Toast.LENGTH_SHORT;
+
+			Toast toast = Toast.makeText(context, text, duration);
+			toast.show();
+		} else {
+			Context context = getApplicationContext();
+			CharSequence text = getString(R.string.location_msg_stopped);
+			int duration = Toast.LENGTH_SHORT;
+
+			Toast toast = Toast.makeText(context, text, duration);
+			toast.show();
+		}
 	}
 
 	@Override
